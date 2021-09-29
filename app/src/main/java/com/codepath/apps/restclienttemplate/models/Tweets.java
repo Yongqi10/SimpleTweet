@@ -1,5 +1,10 @@
 package com.codepath.apps.restclienttemplate.models;
 
+import androidx.room.ColumnInfo;
+import androidx.room.Entity;
+import androidx.room.ForeignKey;
+import androidx.room.Ignore;
+import androidx.room.PrimaryKey;
 import androidx.versionedparcelable.ParcelField;
 
 import org.json.JSONArray;
@@ -10,11 +15,22 @@ import org.parceler.Parcel;
 import java.util.ArrayList;
 import java.util.List;
 @Parcel
+@Entity(foreignKeys = @ForeignKey(entity=User.class, parentColumns="id", childColumns="userid"))
 public class Tweets {
-    public String body;
-    public String createdAt;
-    public  User user;
+    @ColumnInfo
+    @PrimaryKey
     public long id;
+    @ColumnInfo
+    public String body;
+    @ColumnInfo
+    public String createdAt;
+
+    @ColumnInfo
+    public long userid;
+
+    @Ignore
+    public  User user;
+
     public Tweets(){
 
     }
@@ -24,8 +40,9 @@ public class Tweets {
         Tweets tweets = new Tweets();
         tweets.body = jsonObject.getString("text");
         tweets.createdAt = jsonObject.getString("created_at");
-        tweets.user = User.fromJson(jsonObject.getJSONObject("user"));
+       User user =  tweets.user = User.fromJson(jsonObject.getJSONObject("user"));
         tweets.id = jsonObject.getLong("id");
+        tweets.userid = user.id;
         return tweets;
     }
 

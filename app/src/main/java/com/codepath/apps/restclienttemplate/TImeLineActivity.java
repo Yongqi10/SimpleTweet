@@ -9,13 +9,17 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.content.Intent;
 import android.nfc.Tag;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.codepath.apps.restclienttemplate.models.TweetDao;
+import com.codepath.apps.restclienttemplate.models.TweetWithUser;
 import com.codepath.apps.restclienttemplate.models.Tweets;
+import com.codepath.apps.restclienttemplate.models.User;
 import com.codepath.asynchttpclient.callback.JsonHttpResponseHandler;
 
 import org.json.JSONArray;
@@ -32,6 +36,7 @@ public class TImeLineActivity extends AppCompatActivity {
     public static final String TAG = "TimeLineActivity";
     private final int REQUEST_CODE = 20;
     TwitterClient client;
+    TweetDao tweetDao;
     List<Tweets> tweets;
     TweetsAdapter adapter;
     RecyclerView rvTweets;
@@ -43,6 +48,7 @@ public class TImeLineActivity extends AppCompatActivity {
         setContentView(R.layout.activity_time_line);
 
         client = TwitterApplication.getRestClient(this);
+        tweetDao = ((TwitterApplication) getApplicationContext()).getMyDatabase().tweetDao();
 
 
 
@@ -80,6 +86,17 @@ public class TImeLineActivity extends AppCompatActivity {
         //Add the scroll listener to RecyclerView
         rvTweets.addOnScrollListener(ScrollListener);
 
+        //Query for exiting tweets in the DB
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                Log.i(TAG,"showing data from database");
+                List<TweetWithUser> tweetWithUsers = tweetDao.recentItem();
+                List<Tweets> tweetsFromDB = TweetWithUser.getTweetList(tweetWithUsers);
+                adapter.clear();
+                adapter.addALL(tweetsFromDB);
+            }
+        });
         populateHomeTimeline();
 
 
@@ -150,10 +167,22 @@ public class TImeLineActivity extends AppCompatActivity {
                 Log.i(TAG,"onSuccess " + json.toString());
                 JSONArray jsonArray = json.jsonArray;
                 try {
+                    List<Tweets> tweetsFromNetWork = Tweets.fromJsonArray(jsonArray);
                     adapter.clear();
-                    adapter.addALL(Tweets.fromJsonArray(jsonArray));
+                    adapter.addALL(tweetsFromNetWork);
                     //now we called this because we need to stop the signal when the refresh is finished
                     swipeContainer.setRefreshing(false);
+                    AsyncTask.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            Log.i(TAG,"Saving data into database");
+
+                            //insert user first
+                            List<User> usersFromNetwork = User.fromJsonTweetArray(tweetsFromNetWork);
+                            tweetDao.insertModel(usersFromNetwork.toArray(new User[0]));
+                            tweetDao.insertModel(tweetsFromNetWork.toArray(new Tweets[0]));
+                        }
+                    });
                 } catch (JSONException e) {
                     Log.e(TAG,"Json exception",e);
                 }
